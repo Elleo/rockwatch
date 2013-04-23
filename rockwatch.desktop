@@ -1,0 +1,10 @@
+[Desktop Entry]
+Encoding=UTF-8
+Version=0.1
+Name=Rock Watch
+GenericName=Rock Watch
+Comment=Control your Pebble from your N9
+Exec=/usr/bin/invoker --type=e -s --splash /opt/rockwatch/splash.png /opt/rockwatch/rockwatch.sh
+Terminal=false
+Type=Application
+Icon=/opt/rockwatch/icon.png

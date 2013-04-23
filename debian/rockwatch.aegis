@@ -1,0 +1,6 @@
+<aegis>
+	<request>
+		<credential name="TrackerReadAccess" />
+		<for path="/opt/rockwatch/rockwatch.py" />
+	</request>
+</aegis>
