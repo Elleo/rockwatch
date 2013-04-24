@@ -232,7 +232,6 @@ class Pebble(object):
 		try:
 			if using_lightblue:
 				self._ser = LightBluePebble(self.id, pair_first)
-				signal.signal(signal.SIGINT, self._exit_signal_handler)
 			else:
 				devicefile = "/dev/tty.Pebble"+id+"-SerialPortSe"
 				log.debug("Attempting to open %s as Pebble device %s" % (devicefile, id))
