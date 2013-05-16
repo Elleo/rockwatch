@@ -5,11 +5,14 @@ import com.nokia.meego 1.0;
 PageStackWindow {
 	id: rootWin;
 	property int pageMargin: 16;
+	property double watchOpacity: 0.25;
+	property bool working: false;
 
 	Component.onCompleted: {
 		theme.inverted = true;
 	}
 
+	signal watchfaceSelected(string url);
 	signal ping();
 	signal quit();
 
@@ -28,16 +31,17 @@ PageStackWindow {
 	function startWorking() {
 		indicator.running = true;
 		indicator.opacity = 1;
+		rootWin.working = true;
 	}
 
 	function stopWorking() {
 		indicator.running = false;
 		indicator.opacity = 0;
+		rootWin.working = false;
 	}
 
 	function connected() {
-		connected.visible = true;
-		watchImg.opacity = 1;
+		rootWin.watchOpacity = 1;
 	}
 
 	function clearStatus() {
@@ -67,27 +71,6 @@ PageStackWindow {
 		}
 	}
 
-	Image {
-		id: watchImg;
-		source:	"../watch.png";
-		opacity: 0.25;
-		Behavior on opacity { PropertyAnimation { duration: 1000 } }
-		anchors.centerIn: parent;
-		MouseArea {
-			anchors.fill: parent;
-			onClicked: {
-				toolMenu.open();
-			}
-		}
-	}
-
-	Label {
-		id: connected;
-		text: "Connected";
-		anchors.centerIn: parent;
-		visible: false;
-	}
-
 	BusyIndicator {
 		id: indicator
 		platformStyle: BusyIndicatorStyle { size: "large" }
@@ -95,23 +78,6 @@ PageStackWindow {
 		Behavior on opacity { PropertyAnimation { duration: 100 } }
 		opacity: 0;
 		anchors.centerIn: parent;
-	}
-
-	Menu {
-		id: toolMenu;
-		content: MenuLayout {
-
-			MenuItem {
-				text: "Ping Watch";
-				onClicked: rootWin.ping();
-			}
-
-			MenuItem {
-				text: "About";
-				onClicked: rootWin.showMessage("Rockwatch", "Version: 1.0\n\nAuthor: Mike Sheldon (elleo@gnu.org)\n\nLicense: GPL 3.0 or later\n");
-			}
-
-		}
 	}
 
 	ToolBarLayout {

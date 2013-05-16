@@ -4,9 +4,9 @@ from QtMobility.Connectivity import *
 from PySide.QtCore import *
 from PySide.QtDeclarative import *
 from PySide.QtGui import *
-import sys, signal, threading
-import pebble
+import sys, signal, threading, urlparse
 import dbus, dbus.glib
+import pebble
 
 
 class Signals(QObject):
@@ -40,8 +40,10 @@ class Rockwatch(QObject):
 		self.view = QDeclarativeView()
 		self.view.setSource("/home/developer/rockwatch/qml/Main.qml")
 		self.rootObject = self.view.rootObject()
+		self.rootObject.openFile("/home/developer/rockwatch/qml/Menu.qml")
 		self.rootObject.quit.connect(self.quit)
 		self.rootObject.ping.connect(self.ping)
+		self.rootObject.watchfaceSelected.connect(self.installApp)
 		self.context = self.view.rootContext()
 		self.signals.onDoneWorking.connect(self.doneWorking)
 		self.signals.onConnected.connect(self.connected)
@@ -102,6 +104,9 @@ class Rockwatch(QObject):
 			self.stopped = False
 		self.bus.add_signal_receiver(self.metadataChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="metadata_changed")
 		self.bus.add_signal_receiver(self.stateChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="state_changed")
+		sms = self.bus.get_object('org.freedesktop.Telepathy.ConnectionManager.ring', '/org/freedesktop/Telepathy/Connection/ring/tel/ring/text13')
+		self.smsFace = dbus.Interface(sms, 'org.freedesktop.Telepathy.Channel.Interface.Messages')
+		self.bus.add_signal_receiver(self.messageReceived, dbus_interface="org.freedesktop.Telepathy.Channel.Interface.Messages", signal_name="MessageReceived")
 #		self.messageManager.messageAdded.connect(self.showNewMessage)
 		self.signals.onConnected.emit()
 
@@ -117,11 +122,11 @@ class Rockwatch(QObject):
 
 	def metadataChanged(self, key, val, *args):
 		if key == "artist":
-			self.artist = str(val[0])
+			self.artist = unicode(val[0]).encode('ascii', 'ignore')
 		elif key == "album":
-			self.album = str(val[0])
+			self.album = unicode(val[0]).encode('ascii', 'ignore')
 		elif key == "title":
-			self.track = str(val[0])
+			self.track = unicode(val[0]).encode('ascii', 'ignore')
 		self.pebble.set_nowplaying_metadata(self.track, self.album, self.artist)
 
 
@@ -161,6 +166,15 @@ class Rockwatch(QObject):
 				self.stopped = False
 
 
+	def messageReceived(self, data):
+		print data
+		message = unicode(data[1]['content'].title()).encode('ascii', 'ignore')
+		print message
+		sender = unicode(data[0]['sms-service-centre'].title()).encode('ascii', 'ignore')
+		print sender
+		self.pebble.notification_sms(sender, message)
+
+
 	def showNewMessage(self, msgId=None, messageFilter=None):
 		print self
 		print msgId
@@ -180,6 +194,18 @@ class Rockwatch(QObject):
 					self.pebble.notification_sms(message.from_().addressee(), message.find(message.bodyId()).textContent())
 				else:
 					self.pebble.notification_email(message.from_().addressee(), message.subject(), message.find(message.bodyId()).textContent())
+
+
+	def installApp(self, appUri):
+		self.rootObject.startWorking()
+		thread = threading.Thread(target=self._installApp, args=(appUri,))
+		thread.start()
+		
+
+	def _installApp(self, appUri):
+		app = urlparse.urlparse(appUri).path
+		self.pebble.install_app(app)
+		self.signals.onDoneWorking.emit()
 
 
 	def quit(self):
