@@ -4,17 +4,23 @@ from QtMobility.Connectivity import *
 from PySide.QtCore import *
 from PySide.QtDeclarative import *
 from PySide.QtGui import *
-import sys, signal, threading, urlparse
+import sys, signal, threading, urlparse, json
+import urllib2, tempfile, hashlib, StringIO, traceback
 import dbus, dbus.glib
 import pebble
+
+
+FIRMWARE_URL = "http://pebblefw.s3.amazonaws.com/pebble/ev2_4/release/latest.json"
 
 
 class Signals(QObject):
 
 
 	onDoneWorking = Signal()
+	onConnect = Signal()
 	onConnected = Signal()
-	onError = Signal(str, str)
+	onNewFirmwareAvailable = Signal(str, str)
+	onMessage = Signal(str, str)
 	
 	
 	def __init__(self, parent = None):
@@ -43,14 +49,29 @@ class Rockwatch(QObject):
 		self.rootObject.openFile("/home/developer/rockwatch/qml/Menu.qml")
 		self.rootObject.quit.connect(self.quit)
 		self.rootObject.ping.connect(self.ping)
+		self.rootObject.firmwareCheck.connect(self.firmwareCheck)
+		self.rootObject.upgradeFirmware.connect(self.upgradeFirmware)
 		self.rootObject.watchfaceSelected.connect(self.installApp)
 		self.context = self.view.rootContext()
 		self.signals.onDoneWorking.connect(self.doneWorking)
+		self.signals.onConnect.connect(self.connect)
 		self.signals.onConnected.connect(self.connected)
-		self.signals.onError.connect(self.error)
+		self.signals.onMessage.connect(self.message)
+		self.signals.onNewFirmwareAvailable.connect(self.newFirmwareAvailable)
 		self.view.showFullScreen()
 		self.findPebble()
+		self.setupNotifications()
 		sys.exit(self.app.exec_())
+
+
+	def setupNotifications(self):
+		sysbus = dbus.SystemBus()
+		sysbus.add_signal_receiver(self.notificationReceived, dbus_interface='com.meego.core.MNotificationManager')
+
+
+	def notificationReceived(self, *args):
+		print "New notification"
+		print args
 
 
 	def findPebble(self):
@@ -67,14 +88,14 @@ class Rockwatch(QObject):
 				QTimer.singleShot(0, self.connect)
 				break
 		if self.pebbleId == None:
-			self.error("Couldn't find Pebble", "Sorry! I couldn't find your Pebble. Please ensure that it has been paired with your N9 and that its name begins with 'Pebble'", True)
+			self.message("Couldn't find Pebble", "Sorry! I couldn't find your Pebble. Please ensure that it has been paired with your N9 and that its name begins with 'Pebble'", True)
 
 
 	def doneWorking(self):
 		self.rootObject.stopWorking()
 
 
-	def error(self, title, message, quitAfter = False):
+	def message(self, title, message, quitAfter = False):
 		self.rootObject.showMessage(title, message, quitAfter)
 
 	
@@ -104,10 +125,7 @@ class Rockwatch(QObject):
 			self.stopped = False
 		self.bus.add_signal_receiver(self.metadataChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="metadata_changed")
 		self.bus.add_signal_receiver(self.stateChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="state_changed")
-		sms = self.bus.get_object('org.freedesktop.Telepathy.ConnectionManager.ring', '/org/freedesktop/Telepathy/Connection/ring/tel/ring/text13')
-		self.smsFace = dbus.Interface(sms, 'org.freedesktop.Telepathy.Channel.Interface.Messages')
-		self.bus.add_signal_receiver(self.messageReceived, dbus_interface="org.freedesktop.Telepathy.Channel.Interface.Messages", signal_name="MessageReceived")
-#		self.messageManager.messageAdded.connect(self.showNewMessage)
+		self.bus.add_signal_receiver(self.notificationReceived, dbus_interface='com.meego.core.MNotificationManager')
 		self.signals.onConnected.emit()
 
 
@@ -205,6 +223,57 @@ class Rockwatch(QObject):
 	def _installApp(self, appUri):
 		app = urlparse.urlparse(appUri).path
 		self.pebble.install_app(app)
+		self.signals.onDoneWorking.emit()
+
+
+	def firmwareCheck(self):
+		self.rootObject.startWorking()
+		thread = threading.Thread(target=self._firmwareCheck)
+		thread.start()
+
+	
+	def _firmwareCheck(self):
+		try:
+			firmwareMetadata = json.load(urllib2.urlopen(FIRMWARE_URL))
+			versionData = self.pebble.get_versions()
+			currentTimestamp = int(versionData['normal_fw']['timestamp'])
+			latestTimestamp = int(firmwareMetadata['normal']['timestamp'])
+			if latestTimestamp > currentTimestamp:
+				self.signals.onNewFirmwareAvailable.emit(versionData['normal_fw']['version'], firmwareMetadata['normal']['friendlyVersion'])
+		except Exception, e:
+			self.signals.onMessage.emit("Unable to fetch firmware information", str(e))
+		self.signals.onDoneWorking.emit()
+
+
+	def newFirmwareAvailable(self, oldVersion, newVersion):
+		self.rootObject.newFirmwareAvailable(oldVersion, newVersion)
+
+
+	def upgradeFirmware(self):
+		self.rootObject.startWorking()
+		thread = threading.Thread(target=self._upgradeFirmware)
+		thread.start()
+
+
+	def _upgradeFirmware(self):
+		try:
+			firmwareMetadata = json.load(urllib2.urlopen(FIRMWARE_URL))
+			firmwareBundleUrl = firmwareMetadata['normal']['url']
+
+			firmwareData = StringIO.StringIO(urllib2.urlopen(firmwareBundleUrl).read())
+			fileHash = hashlib.sha256(firmwareData.read())
+			firmwareData.seek(0)
+			if fileHash.hexdigest() != firmwareMetadata['normal']['sha-256']:
+				self.signals.onMessage.emit("Firmware upgrade failed", "The firmware file doesn't appear to have downloaded correctly. Please try again.")
+			else:
+				self.pebble.install_firmware(firmwareData)
+				self.pebble.reset()
+				self.signals.onMessage.emit("Firmware upgrade", "Your Pebble's firmware has now been upgraded to the latest version")
+				self.signals.onConnect.emit()
+			f.close()
+		except Exception, e:
+			self.signals.onMessage.emit("Firmware upgrade failed", str(e))
+			traceback.print_exc()
 		self.signals.onDoneWorking.emit()
 
 

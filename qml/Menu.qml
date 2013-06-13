@@ -28,14 +28,21 @@ Page {
 		content: MenuLayout {
 
 			MenuItem {
-				text: "Ping Watch";
+				text: "Ping watch";
 				onClicked: rootWin.ping();
 			}
 
 			MenuItem {
-				text: "Install App or Watchface";
+				text: "Install app or watchface";
 				onClicked: {
 					rootWin.openFile("WatchfaceSelector.qml");
+				}
+			}
+
+			MenuItem {
+				text: "Check for firmware update"
+				onClicked: {
+					rootWin.firmwareCheck();
 				}
 			}
 

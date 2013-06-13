@@ -529,10 +529,10 @@ class Pebble(object):
 		"""Install a firmware bundle to the target watch."""
 
 		resources = None
-		with zipfile.ZipFile(pbz_path) as pbz:
-			binary = pbz.read("tintin_fw.bin")
-			if not recovery:
-				resources = pbz.read("system_resources.pbpack")
+		pbz = zipfile.ZipFile(pbz_path)
+		binary = pbz.read("tintin_fw.bin")
+		if not recovery:
+			resources = pbz.read("system_resources.pbpack")
 
 		self.system_message("FIRMWARE_START")
 		time.sleep(2)

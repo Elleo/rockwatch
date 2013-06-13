@@ -13,6 +13,8 @@ PageStackWindow {
 	}
 
 	signal watchfaceSelected(string url);
+	signal firmwareCheck();
+	signal upgradeFirmware();
 	signal ping();
 	signal quit();
 
@@ -44,12 +46,9 @@ PageStackWindow {
 		rootWin.watchOpacity = 1;
 	}
 
-	function clearStatus() {
-		status.text = "";
-	}
-
-	function setStatusPlaceholder(placeholder) {
-		status.placeholderText = placeholder;
+	function newFirmwareAvailable(oldVersion, newVersion) {
+		firmwareDialog.message = "Old version: " + oldVersion +"\nNew version: " + newVersion + "\n\nWould you like to upgrade now?";
+		firmwareDialog.open();
 	}
 
 	function showBack() {
@@ -114,6 +113,16 @@ PageStackWindow {
 		acceptButtonText: "Okay";
 		onAccepted: {
 			quit();
+		}
+	}
+
+	QueryDialog {
+		id: firmwareDialog;
+		titleText: "Firmware upgrade available";
+		acceptButtonText: "Upgrade";
+		rejectButtonText: "Cancel";
+		onAccepted: {
+			upgradeFirmware();
 		}
 	}
 }

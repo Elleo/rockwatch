@@ -1,2 +1,2 @@
-cd /home/developer/rockwatch
-PYTHONPATH=./deps/ ./rockwatch.py
+cd /opt/rockwatch
+PYTHONPATH=/opt/rockwatch/deps/ /opt/rockwatch/rockwatch.py
