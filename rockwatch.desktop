@@ -4,7 +4,7 @@ Version=0.1
 Name=Rockwatch
 GenericName=Rockwatch
 Comment=Control your Pebble from your N9
-Exec=/usr/bin/invoker --type=e -s --splash /opt/rockwatch/splash.png /opt/rockwatch/rockwatch.sh
+Exec=/usr/bin/invoker --type=e -s --splash /opt/rockwatch/splash.png sh /opt/rockwatch/rockwatch.sh
 Terminal=false
 Type=Application
 Icon=/opt/rockwatch/icon.png
