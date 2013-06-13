@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" height="80" width="80">
+ <defs>
+  <linearGradient id="hicg_overlay_grad" gradientUnits="userSpaceOnUse" x1="39.9995" y1="5.1816" x2="39.9995" y2="58.8019">
+   <stop offset="0" style="stop-color:#FFFFFF"/>
+   <stop offset="1" style="stop-color:#000000"/>
+  </linearGradient>
+  <filter id="hicg_drop_shadow">
+    <feOffset in="SourceAlpha" dx="0" dy="4"/>
+    <feGaussianBlur stdDeviation="4"/>
+	<feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 0.5 0" result="shadow"/>
+    <feBlend in="SourceGraphic" in2="shadow" mode="normal"/>
+  </filter>
+ </defs>
+ <g>
+  <path id="hicg_background" fill="#000000" d="M79,40c0,28.893-10.105,39-39,39S1,68.893,1,40C1,11.106,11.105,1,40,1S79,11.106,79,40z"/>
+  <path id="hicg_highlight" fill="#fff" opacity="0.25" d="M39.999,1C11.105,1,1,11.106,1,40c0,28.893,10.105,39,38.999,39   C68.896,79,79,68.893,79,40C79,11.106,68.896,1,39.999,1z M39.999,78.025C11.57,78.025,1.976,68.43,1.976,40   c0-28.429,9.595-38.024,38.023-38.024c28.43,0,38.024,9.596,38.024,38.024C78.023,68.43,68.429,78.025,39.999,78.025z"/>
+  <path id="hicg_overlay" opacity="0.4" fill="url(#hicg_overlay_grad)" d="M78.977,40c0,28.893-10.1,39-38.977,39S1.023,68.893,1.023,40c0-28.894,10.1-39,38.977-39S78.977,11.106,78.977,40z"/>
+ </g>
+<g xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" transform="translate(26.047846889952, 13) scale(0.12918660287081)">
+  <defs xmlns="http://www.w3.org/2000/svg" id="defs4"/>
+  <sodipodi:namedview xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" id="base" pagecolor="#ffffff" bordercolor="#666666" borderopacity="1.0" inkscape:pageopacity="0.0" inkscape:pageshadow="2" inkscape:zoom="0.98994949" inkscape:cx="-175.08768" inkscape:cy="169.82029" inkscape:document-units="px" inkscape:current-layer="layer1" showgrid="false" inkscape:window-width="1366" inkscape:window-height="741" inkscape:window-x="0" inkscape:window-y="27" inkscape:window-maximized="1" fit-margin-top="10" fit-margin-left="10" fit-margin-right="10" fit-margin-bottom="10"/>
+  <metadata xmlns="http://www.w3.org/2000/svg" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:cc="http://creativecommons.org/ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" id="metadata7">
+    <rdf:RDF>
+      <cc:Work rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g xmlns="http://www.w3.org/2000/svg" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" inkscape:label="Layer 1" inkscape:groupmode="layer" id="layer1" transform="translate(-274.86304,-280.93362)">
+    <rect style="fill:#ffffff;fill-opacity:1;stroke:none" id="rect4486" width="196.97974" height="269.71069" x="284.86304" y="355.35693" rx="9.5427904" ry="8.5959778"/>
+    <rect style="fill:#000000;fill-opacity:1;stroke:none" id="rect4490" width="127.14282" height="32.142845" x="320.71429" y="348.07645" rx="0" ry="0"/>
+    <rect style="fill:#000000;fill-opacity:1;stroke:none" id="rect4490-9" width="127.14282" height="32.142845" x="320.71432" y="598.86218" rx="0" ry="0"/>
+    <rect style="fill:#000000;fill-opacity:1;stroke:none" id="rect4488" width="129.28575" height="152.85713" x="319.28574" y="413.79077" rx="0" ry="0"/>
+    <rect style="fill:#ffffff;fill-opacity:1;stroke:none" id="rect4526" width="117.14286" height="84.285721" x="325.71429" y="290.93362" rx="0" ry="0"/>
+    <rect style="fill:#ffffff;fill-opacity:1;stroke:none" id="rect4526-2" width="117.14286" height="84.285721" x="325.85715" y="604.79077" rx="0" ry="0"/>
+  </g>
+</g></svg>
