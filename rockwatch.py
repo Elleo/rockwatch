@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-from QtMobility.Messaging import *
-from QtMobility.Connectivity import *
 from PySide.QtCore import *
 from PySide.QtDeclarative import *
 from PySide.QtGui import *
@@ -35,8 +33,6 @@ class Rockwatch(QObject):
 		self.app = QApplication(sys.argv)
 		self.app.setApplicationName("Rockwatch")
 		self.signals = Signals()
-#		self.messageManager = QMessageManager()
-#		self.messageManager.registerNotificationFilter(QMessageFilter.byStatus(QMessage.Incoming))
 		self.lastCheck = QDateTime()
 		self.stopped = True
 		self.paused = False
@@ -44,9 +40,9 @@ class Rockwatch(QObject):
 		self.album = "Unknown Album"
 		self.track = "Unknown Track"
 		self.view = QDeclarativeView()
-		self.view.setSource("/home/developer/rockwatch/qml/Main.qml")
+		self.view.setSource("/opt/rockwatch/qml/Main.qml")
 		self.rootObject = self.view.rootObject()
-		self.rootObject.openFile("/home/developer/rockwatch/qml/Menu.qml")
+		self.rootObject.openFile("/opt/rockwatch/qml/Menu.qml")
 		self.rootObject.quit.connect(self.quit)
 		self.rootObject.ping.connect(self.ping)
 		self.rootObject.firmwareCheck.connect(self.firmwareCheck)
@@ -60,18 +56,7 @@ class Rockwatch(QObject):
 		self.signals.onNewFirmwareAvailable.connect(self.newFirmwareAvailable)
 		self.view.showFullScreen()
 		self.findPebble()
-		self.setupNotifications()
 		sys.exit(self.app.exec_())
-
-
-	def setupNotifications(self):
-		sysbus = dbus.SystemBus()
-		sysbus.add_signal_receiver(self.notificationReceived, dbus_interface='com.meego.core.MNotificationManager')
-
-
-	def notificationReceived(self, *args):
-		print "New notification"
-		print args
 
 
 	def findPebble(self):
@@ -125,7 +110,6 @@ class Rockwatch(QObject):
 			self.stopped = False
 		self.bus.add_signal_receiver(self.metadataChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="metadata_changed")
 		self.bus.add_signal_receiver(self.stateChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="state_changed")
-		self.bus.add_signal_receiver(self.notificationReceived, dbus_interface='com.meego.core.MNotificationManager')
 		self.signals.onConnected.emit()
 
 
@@ -185,33 +169,9 @@ class Rockwatch(QObject):
 
 
 	def messageReceived(self, data):
-		print data
 		message = unicode(data[1]['content'].title()).encode('ascii', 'ignore')
-		print message
 		sender = unicode(data[0]['sms-service-centre'].title()).encode('ascii', 'ignore')
-		print sender
 		self.pebble.notification_sms(sender, message)
-
-
-	def showNewMessage(self, msgId=None, messageFilter=None):
-		print self
-		print msgId
-		if msgId == None:
-			# HACK: python wrapper for QtMobility.Messaging is buggy and doesn't send msgIds
-			#sortOrder = QMessageSortOrder.byReceptionTimeStamp(Qt.DescendingOrder)
-			self.lastCheck = QDateTime()
-			self.messageFilter = QMessageFilter.byReceptionTimeStamp(self.lastCheck, QMessageDataComparator.GreaterThanEqual)
-			matchingIds = self.messageManager.queryMessages(self.messageFilter)
-		else:
-			matchingIds = [msgId]
-		for msgId in matchingIds:
-			message = self.messageManager.message(msgId)
-			if self.messageManager.error() == QMessageManager.NoError:
-				print message.from_().addressee(), message.subject()
-				if message.type() == QMessage.Sms:
-					self.pebble.notification_sms(message.from_().addressee(), message.find(message.bodyId()).textContent())
-				else:
-					self.pebble.notification_email(message.from_().addressee(), message.subject(), message.find(message.bodyId()).textContent())
 
 
 	def installApp(self, appUri):
