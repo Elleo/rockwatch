@@ -22,7 +22,8 @@ from PySide.QtGui import *
 import sys, signal, threading, urlparse, json
 import urllib2, tempfile, hashlib, StringIO, traceback
 import dbus, dbus.glib
-import pebble
+from pebble import Pebble, PebbleError
+from pebble.pebble import PebbleBundle
 from AppListModel import *
 
 
@@ -113,7 +114,7 @@ class Rockwatch(QObject):
 
 
 	def _connect(self):
-		self.pebble = pebble.Pebble(self.pebbleId, True, False)
+		self.pebble = Pebble(self.pebbleId, True, False)
 		self.pebble.register_endpoint("MUSIC_CONTROL", self.musicControl)
 		dbus_main_loop = dbus.glib.DBusGMainLoop(set_as_default=True)
 		self.bus = dbus.SessionBus(dbus_main_loop)
@@ -205,7 +206,27 @@ class Rockwatch(QObject):
 
 	def _installApp(self, appUri):
 		app = urlparse.urlparse(appUri).path
-		self.pebble.install_app(app)
+		try:
+			# Check to see if this app is already installed
+			bundle = PebbleBundle(app)
+			if not bundle.is_app_bundle():
+				self.signals.onMessage.emit("Unable to install app", "This does not appear to be a valid Pebble application package.")
+				self.signals.onDoneWorking.emit()
+				return
+			appMetadata = bundle.get_app_metadata()
+			appName = appMetadata['app_name']
+			installedApps = self.pebble.get_appbank_status()
+			alreadyInstalled = False
+			if installedApps:
+				for appDetails in installedApps['apps']:
+					if appDetails['name'] == appName:
+						alreadyInstalled = True
+			if alreadyInstalled:
+				self.pebble.reinstall_app(app)
+			else:
+				self.pebble.install_app(app)
+		except PebbleError, e:
+			self.signals.onMessage.emit("Unable to install app", str(e))
 		self.signals.onDoneWorking.emit()
 
 

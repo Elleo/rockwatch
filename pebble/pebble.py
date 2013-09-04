@@ -162,7 +162,7 @@ class PebbleError(Exception):
 		self._message = message
 
 	 def __str__(self):
-		return "%s (ID:%s)" % (self._message, self._id)
+		return "%s" % self._message
 
 class Pebble(object):
 
@@ -497,7 +497,7 @@ class Pebble(object):
 			if app["index"] == first_free:
 				first_free += 1
 		if first_free == apps["banks"]:
-			raise PebbleError(self.id, "All %d app banks are full" % apps["banks"])
+			raise PebbleError(self.id, "All %d app banks are full, you'll need to delete an existing app or watchface to make more space." % apps["banks"])
 		log.debug("Attempting to add app to bank %d of %d" % (first_free, apps["banks"]))
 
 		client = PutBytesClient(self, first_free, "BINARY", binary)
