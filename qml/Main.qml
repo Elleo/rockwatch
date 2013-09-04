@@ -7,6 +7,8 @@ PageStackWindow {
 	property int pageMargin: 16;
 	property double watchOpacity: 0.25;
 	property bool working: false;
+	property int appId;
+	property int appIndex;
 
 	Component.onCompleted: {
 		theme.inverted = true;
@@ -15,6 +17,8 @@ PageStackWindow {
 	signal watchfaceSelected(string url);
 	signal firmwareCheck();
 	signal upgradeFirmware();
+	signal getAppList();
+	signal deleteApp(int appId, int appIndex);
 	signal ping();
 	signal quit();
 

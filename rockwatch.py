@@ -1,4 +1,21 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# Copyright (C) 2013 Mike Sheldon <elleo@gnu.org>
+# 
+# This program is free software: you can redistribute it and/or modify 
+# it under the terms of the GNU General Public License as published by 
+# the Free Software Foundation, either version 3 of the License, or 
+# (at your option) any later version. 
+# 
+# This program is distributed in the hope that it will be useful, 
+# but WITHOUT ANY WARRANTY; without even the implied warranty of 
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the 
+# GNU General Public License for more details. 
+# 
+# You should have received a copy of the GNU General Public License 
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+
 from PySide.QtCore import *
 from PySide.QtDeclarative import *
 from PySide.QtGui import *
@@ -6,6 +23,7 @@ import sys, signal, threading, urlparse, json
 import urllib2, tempfile, hashlib, StringIO, traceback
 import dbus, dbus.glib
 import pebble
+from AppListModel import *
 
 
 FIRMWARE_URL = "http://pebblefw.s3.amazonaws.com/pebble/ev2_4/release/latest.json"
@@ -40,15 +58,19 @@ class Rockwatch(QObject):
 		self.album = "Unknown Album"
 		self.track = "Unknown Track"
 		self.view = QDeclarativeView()
-		self.view.setSource("/opt/rockwatch/qml/Main.qml")
+		self.view.setSource("qml/Main.qml")
 		self.rootObject = self.view.rootObject()
-		self.rootObject.openFile("/opt/rockwatch/qml/Menu.qml")
+		self.rootObject.openFile("Menu.qml")
 		self.rootObject.quit.connect(self.quit)
 		self.rootObject.ping.connect(self.ping)
 		self.rootObject.firmwareCheck.connect(self.firmwareCheck)
 		self.rootObject.upgradeFirmware.connect(self.upgradeFirmware)
 		self.rootObject.watchfaceSelected.connect(self.installApp)
+		self.rootObject.getAppList.connect(self.getAppList)
+		self.rootObject.deleteApp.connect(self.deleteApp)
+		self.appListModel = AppListModel()
 		self.context = self.view.rootContext()
+		self.context.setContextProperty('appListModel', self.appListModel)
 		self.signals.onDoneWorking.connect(self.doneWorking)
 		self.signals.onConnect.connect(self.connect)
 		self.signals.onConnected.connect(self.connected)
@@ -95,21 +117,24 @@ class Rockwatch(QObject):
 		self.pebble.register_endpoint("MUSIC_CONTROL", self.musicControl)
 		dbus_main_loop = dbus.glib.DBusGMainLoop(set_as_default=True)
 		self.bus = dbus.SessionBus(dbus_main_loop)
-		self.mafwProxy = self.bus.get_object("com.nokia.mafw.renderer.MafwGstRendererPlugin.mafw_gst_renderer",
+		try:
+			self.mafwProxy = self.bus.get_object("com.nokia.mafw.renderer.MafwGstRendererPlugin.mafw_gst_renderer",
 		                       "/com/nokia/mafw/renderer/mafw_gst_renderer")
-		self.mafwIface = dbus.Interface(self.mafwProxy, dbus_interface="com.nokia.mafw.renderer")
-		status = self.mafwIface.get_status()
-		if status[2] == 0:
-			self.stopped = True
-			self.paused = False
-		elif status[2] == 1:
-			self.paused = False
-			self.stopped = False
-		elif status[2] == 2:
-			self.paused = True
-			self.stopped = False
-		self.bus.add_signal_receiver(self.metadataChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="metadata_changed")
-		self.bus.add_signal_receiver(self.stateChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="state_changed")
+			self.mafwIface = dbus.Interface(self.mafwProxy, dbus_interface="com.nokia.mafw.renderer")
+			status = self.mafwIface.get_status()
+			if status[2] == 0:
+				self.stopped = True
+				self.paused = False
+			elif status[2] == 1:
+				self.paused = False
+				self.stopped = False
+			elif status[2] == 2:
+				self.paused = True
+				self.stopped = False
+			self.bus.add_signal_receiver(self.metadataChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="metadata_changed")
+			self.bus.add_signal_receiver(self.stateChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="state_changed")
+		except:
+			print "MAFW not responding"
 		self.signals.onConnected.emit()
 
 
@@ -133,7 +158,6 @@ class Rockwatch(QObject):
 
 
 	def stateChanged(self, state):
-		print state
 		if state == 0:
 			self.paused = False
 			self.stopped = True
@@ -145,7 +169,6 @@ class Rockwatch(QObject):
 
 
 	def musicControl(self, endpoint, data):
-		print endpoint, data
 		if data == "NEXT":
 			self.mafwIface.next()
 		elif data == "PREVIOUS":
@@ -184,6 +207,27 @@ class Rockwatch(QObject):
 		app = urlparse.urlparse(appUri).path
 		self.pebble.install_app(app)
 		self.signals.onDoneWorking.emit()
+
+
+	def getAppList(self):
+		self.appListModel.clear()
+		apps = self.pebble.get_appbank_status()
+		if apps:
+			for appDetails in apps['apps']:
+				app = App(appDetails['id'], appDetails['name'], appDetails['company'], appDetails['index'])
+				self.appListModel.addToEnd(app)
+
+
+	def deleteApp(self, appId, appIndex):
+		self.rootObject.startWorking()
+		thread = threading.Thread(target=self._deleteApp, args=(appId, appIndex))
+		thread.start()
+
+
+	def _deleteApp(self, appId, appIndex):
+		self.pebble.remove_app(appId, appIndex)
+		self.signals.onDoneWorking.emit()
+		self.getAppList()
 
 
 	def firmwareCheck(self):

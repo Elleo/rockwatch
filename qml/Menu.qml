@@ -40,6 +40,14 @@ Page {
 			}
 
 			MenuItem {
+				text: "Delete apps";
+				onClicked: {
+					rootWin.getAppList();
+					rootWin.openFile("DeleteApp.qml");
+				}
+			}
+
+			MenuItem {
 				text: "Check for firmware update"
 				onClicked: {
 					rootWin.firmwareCheck();
