@@ -135,7 +135,7 @@ class Rockwatch(QObject):
 			self.bus.add_signal_receiver(self.metadataChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="metadata_changed")
 			self.bus.add_signal_receiver(self.stateChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="state_changed")
 		except:
-			print "MAFW not responding"
+			self.signals.onMessage.emit("MAFW not responding", "The MeeGo multimedia framework is not responding, music updates and controls will be unavailable.")
 		self.signals.onConnected.emit()
 
 
@@ -145,7 +145,10 @@ class Rockwatch(QObject):
 
 
 	def ping(self):
-		self.pebble.ping()
+		try:
+			self.pebble.ping()
+		except PebbleError, e:
+			self.signals.onMessage.emit("Unable to ping Pebble", str(e))
 
 
 	def metadataChanged(self, key, val, *args):
@@ -155,7 +158,10 @@ class Rockwatch(QObject):
 			self.album = unicode(val[0]).encode('ascii', 'ignore')
 		elif key == "title":
 			self.track = unicode(val[0]).encode('ascii', 'ignore')
-		self.pebble.set_nowplaying_metadata(self.track, self.album, self.artist)
+		try:
+			self.pebble.set_nowplaying_metadata(self.track, self.album, self.artist)
+		except PebbleError, e:
+			self.signals.onMessage.emit("Unable to update music information", str(e))
 
 
 	def stateChanged(self, state):
@@ -195,7 +201,10 @@ class Rockwatch(QObject):
 	def messageReceived(self, data):
 		message = unicode(data[1]['content'].title()).encode('ascii', 'ignore')
 		sender = unicode(data[0]['sms-service-centre'].title()).encode('ascii', 'ignore')
-		self.pebble.notification_sms(sender, message)
+		try:
+			self.pebble.notification_sms(sender, message)
+		except PebbleError, e:
+			self.signals.onMessage.emit("Unable to send SMS notification", str(e))
 
 
 	def installApp(self, appUri):
@@ -232,7 +241,11 @@ class Rockwatch(QObject):
 
 	def getAppList(self):
 		self.appListModel.clear()
-		apps = self.pebble.get_appbank_status()
+		try:
+			apps = self.pebble.get_appbank_status()
+		except PebbleError, e:
+			self.signals.onMessage.emit("Unable to retrieve app list", str(e))
+			return
 		if apps:
 			for appDetails in apps['apps']:
 				app = App(appDetails['id'], appDetails['name'], appDetails['company'], appDetails['index'])
@@ -246,7 +259,10 @@ class Rockwatch(QObject):
 
 
 	def _deleteApp(self, appId, appIndex):
-		self.pebble.remove_app(appId, appIndex)
+		try:
+			self.pebble.remove_app(appId, appIndex)
+		except PebbleError, e:
+			self.signals.onMessage.emit("Unable to remove app", str(e))
 		self.signals.onDoneWorking.emit()
 		self.getAppList()
 
