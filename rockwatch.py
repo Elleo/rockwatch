@@ -58,7 +58,7 @@ class Rockwatch(QObject):
 		self.album = "Unknown Album"
 		self.track = "Unknown Track"
 		self.view = QDeclarativeView()
-		self.view.setSource("qml/Main.qml")
+		self.view.setSource("/opt/rockwatch/qml/Main.qml")
 		self.rootObject = self.view.rootObject()
 		self.rootObject.openFile("Menu.qml")
 		self.rootObject.quit.connect(self.quit)
