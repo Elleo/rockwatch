@@ -272,7 +272,7 @@ class Pebble(object):
 				if endpoint in self._endpoint_handlers and resp:
 					self._endpoint_handlers[endpoint](endpoint, resp)
 		except:
-			traceback.print_exc()
+			#traceback.print_exc()
 			raise PebbleError(self.id, "Lost connection to Pebble")
 			self._alive = False
 
@@ -636,6 +636,11 @@ class Pebble(object):
 
 		self._alive = False
 		self._ser.close()
+
+	def is_alive(self):
+		if not self._alive:
+			return False
+		return self._ser.is_alive()
 
 	def _add_app(self, index):
 		data = pack("!bI", 3, index)

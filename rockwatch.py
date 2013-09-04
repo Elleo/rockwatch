@@ -24,6 +24,7 @@ import urllib2, tempfile, hashlib, StringIO, traceback
 import dbus, dbus.glib
 from pebble import Pebble, PebbleError
 from pebble.pebble import PebbleBundle
+from pebble.LightBluePebble import LightBluePebbleError
 from AppListModel import *
 
 
@@ -51,10 +52,12 @@ class Rockwatch(QObject):
 		super(Rockwatch, self).__init__(parent)
 		self.app = QApplication(sys.argv)
 		self.app.setApplicationName("Rockwatch")
+		self.pebble = None
 		self.signals = Signals()
 		self.lastCheck = QDateTime()
 		self.stopped = True
 		self.paused = False
+		self.connecting = False
 		self.artist = "Unknown Artist"
 		self.album = "Unknown Album"
 		self.track = "Unknown Track"
@@ -78,24 +81,30 @@ class Rockwatch(QObject):
 		self.signals.onMessage.connect(self.message)
 		self.signals.onNewFirmwareAvailable.connect(self.newFirmwareAvailable)
 		self.view.showFullScreen()
-		self.findPebble()
+		self.timer = QTimer(self)
+		self.app.connect(self.timer, SIGNAL("timeout()"), self.checkConnection)
+		self.timer.start(30000)
+		QTimer.singleShot(0, self.findPebble)
 		sys.exit(self.app.exec_())
 
 
 	def findPebble(self):
+		self.connecting = True
 		sysbus = dbus.SystemBus()
 		manager = dbus.Interface(sysbus.get_object('org.bluez', '/'), 'org.bluez.Manager')
 		adapterPath = manager.DefaultAdapter()
 		adapter = dbus.Interface(sysbus.get_object('org.bluez', adapterPath), 'org.bluez.Adapter')
+		self.pebbleId = None
 		for devicePath in adapter.ListDevices():
 			device = dbus.Interface(sysbus.get_object('org.bluez', devicePath),'org.bluez.Device')
 			deviceProperties = device.GetProperties()
 			name = deviceProperties['Name']
 			if name.lower()[:6] == "pebble":
 				self.pebbleId = deviceProperties['Address']
-				QTimer.singleShot(0, self.connect)
+				self.connect()
 				break
 		if self.pebbleId == None:
+			self.connecting = False
 			self.message("Couldn't find Pebble", "Sorry! I couldn't find your Pebble. Please ensure that it has been paired with your N9 and that its name begins with 'Pebble'", True)
 
 
@@ -113,9 +122,22 @@ class Rockwatch(QObject):
 		thread.start()
 
 
+	def checkConnection(self):
+		if not self.pebble or not self.pebble.is_alive():
+			if self.connecting:
+				self.signals.onMessage.emit("Unable to connect to Pebble", "Check that your phone's bluetooth is switched on and that your Pebble is nearby.")
+			self.findPebble() # Try to reconnect
+
+
 	def _connect(self):
-		self.pebble = Pebble(self.pebbleId, True, False)
-		self.pebble.register_endpoint("MUSIC_CONTROL", self.musicControl)
+		self.connecting = True
+		try:
+			self.pebble = Pebble(self.pebbleId, True, False)
+			self.pebble.register_endpoint("MUSIC_CONTROL", self.musicControl)
+		except LightBluePebbleError, e:
+			self.signals.onMessage.emit("Unable to connect to Pebble", str(e))
+			self.connecting = False
+			return
 		dbus_main_loop = dbus.glib.DBusGMainLoop(set_as_default=True)
 		self.bus = dbus.SessionBus(dbus_main_loop)
 		try:
@@ -140,12 +162,17 @@ class Rockwatch(QObject):
 
 
 	def connected(self):
+		self.connecting = False
 		self.doneWorking()
 		self.rootObject.connected()
 
 
 	def ping(self):
 		try:
+			if not self.pebble.is_alive() and not self.connecting:
+				self.findPebble()
+				if self.pebbleId == None:
+					return
 			self.pebble.ping()
 		except PebbleError, e:
 			self.signals.onMessage.emit("Unable to ping Pebble", str(e))
@@ -159,7 +186,12 @@ class Rockwatch(QObject):
 		elif key == "title":
 			self.track = unicode(val[0]).encode('ascii', 'ignore')
 		try:
-			self.pebble.set_nowplaying_metadata(self.track, self.album, self.artist)
+			if not self.connecting:
+				if not self.pebble.is_alive():
+					self.findPebble()
+					if self.pebbleId == None:
+						return
+				self.pebble.set_nowplaying_metadata(self.track, self.album, self.artist)
 		except PebbleError, e:
 			self.signals.onMessage.emit("Unable to update music information", str(e))
 
@@ -202,12 +234,20 @@ class Rockwatch(QObject):
 		message = unicode(data[1]['content'].title()).encode('ascii', 'ignore')
 		sender = unicode(data[0]['sms-service-centre'].title()).encode('ascii', 'ignore')
 		try:
+			if not self.pebble.is_alive() and not self.connecting:
+				self.findPebble()
+				if self.pebbleId == None:
+					return
 			self.pebble.notification_sms(sender, message)
 		except PebbleError, e:
 			self.signals.onMessage.emit("Unable to send SMS notification", str(e))
 
 
 	def installApp(self, appUri):
+		if not self.pebble.is_alive() and not self.connecting:
+			self.findPebble()
+			if self.pebbleId == None:
+				return
 		self.rootObject.startWorking()
 		thread = threading.Thread(target=self._installApp, args=(appUri,))
 		thread.start()
@@ -242,6 +282,10 @@ class Rockwatch(QObject):
 	def getAppList(self):
 		self.appListModel.clear()
 		try:
+			if not self.pebble.is_alive() and not self.connecting:
+				self.findPebble()
+				if self.pebbleId == None:
+					return
 			apps = self.pebble.get_appbank_status()
 		except PebbleError, e:
 			self.signals.onMessage.emit("Unable to retrieve app list", str(e))
@@ -253,6 +297,10 @@ class Rockwatch(QObject):
 
 
 	def deleteApp(self, appId, appIndex):
+		if not self.pebble.is_alive() and not self.connecting:
+			self.findPebble()
+			if self.pebbleId == None:
+				return
 		self.rootObject.startWorking()
 		thread = threading.Thread(target=self._deleteApp, args=(appId, appIndex))
 		thread.start()
@@ -268,6 +316,10 @@ class Rockwatch(QObject):
 
 
 	def firmwareCheck(self):
+		if not self.pebble.is_alive() and not self.connecting:
+			self.findPebble()
+			if self.pebbleId == None:
+				return
 		self.rootObject.startWorking()
 		thread = threading.Thread(target=self._firmwareCheck)
 		thread.start()
@@ -291,6 +343,10 @@ class Rockwatch(QObject):
 
 
 	def upgradeFirmware(self):
+		if not self.pebble.is_alive() and not self.connecting:
+			self.findPebble()
+			if self.pebbleId == None:
+				return
 		self.rootObject.startWorking()
 		thread = threading.Thread(target=self._upgradeFirmware)
 		thread.start()
