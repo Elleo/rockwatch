@@ -81,6 +81,7 @@ class Rockwatch(QObject):
 		self.signals.onMessage.connect(self.message)
 		self.signals.onNewFirmwareAvailable.connect(self.newFirmwareAvailable)
 		self.view.showFullScreen()
+		self.mutex = threading.Lock()
 		self.timer = QTimer(self)
 		self.app.connect(self.timer, SIGNAL("timeout()"), self.checkConnection)
 		self.timer.start(30000)
@@ -123,10 +124,12 @@ class Rockwatch(QObject):
 
 
 	def checkConnection(self):
+		self.mutex.acquire()
 		if not self.pebble or not self.pebble.is_alive():
 			if self.connecting:
 				self.signals.onMessage.emit("Unable to connect to Pebble", "Check that your phone's bluetooth is switched on and that your Pebble is nearby.")
 			self.findPebble() # Try to reconnect
+		self.mutex.release()
 
 
 	def _connect(self):
@@ -186,12 +189,12 @@ class Rockwatch(QObject):
 		elif key == "title":
 			self.track = unicode(val[0]).encode('ascii', 'ignore')
 		try:
+			self.mutex.acquire()
 			if not self.connecting:
 				if not self.pebble.is_alive():
-					self.findPebble()
-					if self.pebbleId == None:
-						return
+					return
 				self.pebble.set_nowplaying_metadata(self.track, self.album, self.artist)
+			self.mutex.release()
 		except PebbleError, e:
 			self.signals.onMessage.emit("Unable to update music information", str(e))
 
@@ -333,6 +336,8 @@ class Rockwatch(QObject):
 			latestTimestamp = int(firmwareMetadata['normal']['timestamp'])
 			if latestTimestamp > currentTimestamp:
 				self.signals.onNewFirmwareAvailable.emit(versionData['normal_fw']['version'], firmwareMetadata['normal']['friendlyVersion'])
+			else:
+				self.signals.onMessage.emit("Up-to-date", "Your Pebble is running the latest firmware.")
 		except Exception, e:
 			self.signals.onMessage.emit("Unable to fetch firmware information", str(e))
 		self.signals.onDoneWorking.emit()
