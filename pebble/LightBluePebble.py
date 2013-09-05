@@ -5,6 +5,7 @@ import os
 import Queue
 import re
 import socket
+import time
 from multiprocessing import Process
 from struct import unpack
 
@@ -130,6 +131,7 @@ class LightBluePebble(object):
 
         send_data = e = None
         while not self.bt_teardown.is_set():
+            time.sleep(0.2)
             # send anything in the send queue
             try:
                 send_data = self.send_queue.get_nowait()
