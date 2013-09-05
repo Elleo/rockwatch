@@ -224,12 +224,12 @@ class Rockwatch(QObject):
 			elif not self.paused:
 				print "Pausing"
 				self.mafwIface.pause()
-				self.paused = False
+				self.paused = True
 				self.stopped = False
 			else:
 				print "Resuming"
 				self.mafwIface.resume()
-				self.paused = True
+				self.paused = False
 				self.stopped = False
 
 
