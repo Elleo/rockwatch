@@ -21,7 +21,7 @@ from PySide.QtDeclarative import *
 from PySide.QtGui import *
 import sys, signal, threading, urlparse, json
 import urllib2, tempfile, hashlib, StringIO, traceback
-import dbus, dbus.glib
+import dbus, dbus.glib, dbus.service
 from pebble import Pebble, PebbleError
 from pebble.pebble import PebbleBundle
 from pebble.LightBluePebble import LightBluePebbleError
@@ -45,7 +45,7 @@ class Signals(QObject):
 		super(Signals, self).__init__(parent)
 
 
-class Rockwatch(QObject):
+class Rockwatch(dbus.service.Object):
 
 
 	def __init__(self, parent = None):
@@ -82,7 +82,7 @@ class Rockwatch(QObject):
 		self.signals.onNewFirmwareAvailable.connect(self.newFirmwareAvailable)
 		self.view.showFullScreen()
 		self.mutex = threading.Lock()
-		self.timer = QTimer(self)
+		self.timer = QTimer(self.app)
 		self.app.connect(self.timer, SIGNAL("timeout()"), self.checkConnection)
 		self.timer.start(30000)
 		QTimer.singleShot(0, self.findPebble)
@@ -143,6 +143,9 @@ class Rockwatch(QObject):
 			return
 		dbus_main_loop = dbus.glib.DBusGMainLoop(set_as_default=True)
 		self.bus = dbus.SessionBus(dbus_main_loop)
+		# Setup our own DBUS service
+		bus_name = dbus.service.BusName("com.mikeasoft.rockwatch", bus=self.bus)
+		dbus.service.Object.__init__(self, object_path="/rockwatch", bus_name=bus_name)
 		try:
 			self.mafwProxy = self.bus.get_object("com.nokia.mafw.renderer.MafwGstRendererPlugin.mafw_gst_renderer",
 		                       "/com/nokia/mafw/renderer/mafw_gst_renderer")
@@ -170,6 +173,7 @@ class Rockwatch(QObject):
 		self.rootObject.connected()
 
 
+	@dbus.service.method("com.mikeasoft.rockwatch")
 	def ping(self):
 		try:
 			if not self.pebble.is_alive() and not self.connecting:
@@ -179,6 +183,13 @@ class Rockwatch(QObject):
 			self.pebble.ping()
 		except PebbleError, e:
 			self.signals.onMessage.emit("Unable to ping Pebble", str(e))
+
+
+	@dbus.service.method("com.mikeasoft.rockwatch")
+	def nowPlaying(self, artist, album, title):
+		self.metadataChanged("artist", [artist])
+		self.metadataChanged("album", [album])
+		self.metadataChanged("title", [title])
 
 
 	def metadataChanged(self, key, val, *args):
@@ -217,25 +228,29 @@ class Rockwatch(QObject):
 			self.mafwIface.previous()
 		elif data == "PLAYPAUSE":
 			if self.stopped:
-				print "Playing"
 				self.mafwIface.play()
 				self.stopped = False
 				self.paused = False
 			elif not self.paused:
-				print "Pausing"
 				self.mafwIface.pause()
 				self.paused = True
 				self.stopped = False
 			else:
-				print "Resuming"
 				self.mafwIface.resume()
 				self.paused = False
 				self.stopped = False
 
 
 	def messageReceived(self, data):
-		message = unicode(data[1]['content'].title()).encode('ascii', 'ignore')
-		sender = unicode(data[0]['sms-service-centre'].title()).encode('ascii', 'ignore')
+		message = data[1]['content'].title()
+		sender = data[0]['sms-service-centre'].title()
+		self.showSMS(sender, message)
+
+
+	@dbus.service.method("com.mikeasoft.rockwatch")
+	def showSMS(self, sender, message):
+		sender = unicode(sender).encode('ascii', 'ignore')
+		message = unicode(message).encode('ascii', 'ignore')
 		try:
 			if not self.pebble.is_alive() and not self.connecting:
 				self.findPebble()
@@ -246,6 +261,22 @@ class Rockwatch(QObject):
 			self.signals.onMessage.emit("Unable to send SMS notification", str(e))
 
 
+	@dbus.service.method("com.mikeasoft.rockwatch")
+	def showEmail(self, sender, subject, body):
+		sender = unicode(sender).encode('ascii', 'ignore')
+		subject = unicode(subject).encode('ascii', 'ignore')
+		body = unicode(body).encode('ascii', 'ignore')
+		try:
+			if not self.pebble.is_alive() and not self.connecting:
+				self.findPebble()
+				if self.pebbleId == None:
+					return
+			self.pebble.notification_email(sender, subject, body)
+		except PebbleError, e:
+			self.signals.onMessage.emit("Unable to send e-mail notification", str(e))
+
+
+	@dbus.service.method("com.mikeasoft.rockwatch")
 	def installApp(self, appUri):
 		if not self.pebble.is_alive() and not self.connecting:
 			self.findPebble()
@@ -282,8 +313,8 @@ class Rockwatch(QObject):
 		self.signals.onDoneWorking.emit()
 
 
-	def getAppList(self):
-		self.appListModel.clear()
+	@dbus.service.method("com.mikeasoft.rockwatch")
+	def listApps(self):
 		try:
 			if not self.pebble.is_alive() and not self.connecting:
 				self.findPebble()
@@ -293,12 +324,20 @@ class Rockwatch(QObject):
 		except PebbleError, e:
 			self.signals.onMessage.emit("Unable to retrieve app list", str(e))
 			return
+
+		return apps
+
+
+	def getAppList(self):
+		self.appListModel.clear()
+		apps = self.listApps()
 		if apps:
 			for appDetails in apps['apps']:
 				app = App(appDetails['id'], appDetails['name'], appDetails['company'], appDetails['index'])
 				self.appListModel.addToEnd(app)
 
 
+	@dbus.service.method("com.mikeasoft.rockwatch")
 	def deleteApp(self, appId, appIndex):
 		if not self.pebble.is_alive() and not self.connecting:
 			self.findPebble()
