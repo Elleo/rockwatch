@@ -531,27 +531,33 @@ class Pebble(object):
 		resources = None
 		pbz = zipfile.ZipFile(pbz_path)
 		binary = pbz.read("tintin_fw.bin")
+
+		# Calculate CRC in advance to avoid timeout on slow hardware
+		bincrc = stm32_crc.crc32(binary)
+
 		if not recovery:
 			resources = pbz.read("system_resources.pbpack")
+			if resources:
+				rescrc = stm32_crc.crc32(resources)
 
 		self.system_message("FIRMWARE_START")
 		time.sleep(2)
 
 		if resources:
-			client = PutBytesClient(self, 0, "SYS_RESOURCES", resources)
+			client = PutBytesClient(self, 0, "SYS_RESOURCES", resources, rescrc)
 			self.register_endpoint("PUTBYTES", client.handle_message)
 			client.init()
 			while not client._done and not client._error:
-				pass
+				time.sleep(0.2)
 			if client._error:
 				raise PebbleError(self.id, "Failed to send firmware resources %s/system_resources.pbpack" % pbz_path)
 
 
-		client = PutBytesClient(self, 0, "RECOVERY" if recovery else "FIRMWARE", binary)
+		client = PutBytesClient(self, 0, "RECOVERY" if recovery else "FIRMWARE", binary, bincrc)
 		self.register_endpoint("PUTBYTES", client.handle_message)
 		client.init()
 		while not client._done and not client._error:
-			pass
+			time.sleep(0.2)
 		if client._error:
 			raise PebbleError(self.id, "Failed to send firmware binary %s/tintin_fw.bin" % pbz_path)
 
@@ -887,7 +893,7 @@ class PutBytesClient(object):
 		"BINARY": 5
 	}
 
-	def __init__(self, pebble, index, transfer_type, buffer):
+	def __init__(self, pebble, index, transfer_type, buffer, crc=None):
 		self._pebble = pebble
 		self._state = self.states["NOT_STARTED"]
 		self._transfer_type = self.transfer_types[transfer_type]
@@ -895,6 +901,7 @@ class PutBytesClient(object):
 		self._index = index
 		self._done = False
 		self._error = False
+		self._crc = crc
 
 	def init(self):
 		data = pack("!bIbb", 1, len(self._buffer), self._transfer_type, self._index)
@@ -925,12 +932,17 @@ class PutBytesClient(object):
 			self.commit()
 
 	def commit(self):
-		data = pack("!bII", 3, self._token & 0xFFFFFFFF, stm32_crc.crc32(self._buffer))
+		if self._crc:
+			crc = self._crc
+		else: 
+			crc = stm32_crc.crc32(self._buffer)
+		data = pack("!bII", 3, self._token & 0xFFFFFFFF, crc)
 		self._pebble._send_message("PUTBYTES", data)
 
 	def handle_commit(self, resp):
 		res, = unpack("!b", resp[0])
 		if res != 1:
+			print "handle commit failed"
 			self.abort()
 			return
 		self._state = self.states["COMPLETE"]

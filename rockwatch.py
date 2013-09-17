@@ -58,6 +58,7 @@ class Rockwatch(dbus.service.Object):
 		self.stopped = True
 		self.paused = False
 		self.connecting = False
+		self.firmwareUpdated = False
 		self.artist = "Unknown Artist"
 		self.album = "Unknown Album"
 		self.track = "Unknown Track"
@@ -126,7 +127,7 @@ class Rockwatch(dbus.service.Object):
 	def checkConnection(self):
 		self.mutex.acquire()
 		if not self.pebble or not self.pebble.is_alive():
-			if self.connecting:
+			if self.connecting and not self.firmwareUpdated:
 				self.signals.onMessage.emit("Unable to connect to Pebble", "Check that your phone's bluetooth is switched on and that your Pebble is nearby.")
 			self.findPebble() # Try to reconnect
 		self.mutex.release()
@@ -164,6 +165,7 @@ class Rockwatch(dbus.service.Object):
 			self.bus.add_signal_receiver(self.stateChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="state_changed")
 		except:
 			self.signals.onMessage.emit("MAFW not responding", "The MeeGo multimedia framework is not responding, music updates and controls will be unavailable.")
+		self.firmwareUpdated = False
 		self.signals.onConnected.emit()
 
 
@@ -409,9 +411,10 @@ class Rockwatch(dbus.service.Object):
 			else:
 				self.pebble.install_firmware(firmwareData)
 				self.pebble.reset()
+				self.firmwareUpdated = True
 				self.signals.onMessage.emit("Firmware upgrade", "Your Pebble's firmware has now been upgraded to the latest version")
 				self.signals.onConnect.emit()
-			f.close()
+			firmwareData.close()
 		except Exception, e:
 			self.signals.onMessage.emit("Firmware upgrade failed", str(e))
 			traceback.print_exc()

@@ -17,10 +17,7 @@ images.files = *.png
 desktop.path = /usr/share/applications/
 desktop.files = rockwatch.desktop
 
-service.path = /usr/share/dbus-1/services/
-service.files = com.mikeasoft.rockwatch.service
-
 qml.path = /opt/rockwatch/qml/
 qml.files = qml/*
 
-INSTALLS += rockwatch pebble deps images desktop qml service
+INSTALLS += rockwatch pebble deps images desktop qml
