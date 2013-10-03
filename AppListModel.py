@@ -110,5 +110,3 @@ class AppListModel(QtCore.QAbstractListModel):
 		self.endInsertRows()
 
 
-if __name__ == "__main__":
-	StatusNetMeego()
