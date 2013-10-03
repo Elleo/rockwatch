@@ -152,7 +152,7 @@ class Rockwatch(dbus.service.Object):
 		# we need to connect to it
 		self.mafwIfaceChanged()
 
-		self.bus.add_signal_receiver(self.nameOwnerChanged, dbus_interface="org.freedesktop.DBus", signal_name="NameOwnerChanged")
+		self.bus.add_signal_receiver(self.mafwIfaceChanged, dbus_interface="org.freedesktop.DBus", signal_name="NameOwnerChanged", arg0=self.MAFW_GST_RENDERER)
 		self.bus.add_signal_receiver(self.metadataChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="metadata_changed")
 		self.bus.add_signal_receiver(self.stateChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="state_changed")
 
@@ -187,12 +187,7 @@ class Rockwatch(dbus.service.Object):
 	mafwIface = property(lambda self: getattr(self, '_mafwIface', None))
 	MAFW_GST_RENDERER = "com.nokia.mafw.renderer.MafwGstRendererPlugin.mafw_gst_renderer"
 
-	def nameOwnerChanged(self, name, *args):
-		''' We are processing any service startup or shutdown here '''
-		if name == self.MAFW_GST_RENDERER:
-			self.mafwIfaceChanged()
-
-	def mafwIfaceChanged(self):
+	def mafwIfaceChanged(self, *args):
 		''' Our previous mafwIface may be no longer valid '''
 		try:
 			mafwProxy = self.bus.get_object(
