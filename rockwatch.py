@@ -147,24 +147,15 @@ class Rockwatch(dbus.service.Object):
 		# Setup our own DBUS service
 		bus_name = dbus.service.BusName("com.mikeasoft.rockwatch", bus=self.bus)
 		dbus.service.Object.__init__(self, object_path="/rockwatch", bus_name=bus_name)
-		try:
-			self.mafwProxy = self.bus.get_object("com.nokia.mafw.renderer.MafwGstRendererPlugin.mafw_gst_renderer",
-		                       "/com/nokia/mafw/renderer/mafw_gst_renderer")
-			self.mafwIface = dbus.Interface(self.mafwProxy, dbus_interface="com.nokia.mafw.renderer")
-			status = self.mafwIface.get_status()
-			if status[2] == 0:
-				self.stopped = True
-				self.paused = False
-			elif status[2] == 1:
-				self.paused = False
-				self.stopped = False
-			elif status[2] == 2:
-				self.paused = True
-				self.stopped = False
-			self.bus.add_signal_receiver(self.metadataChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="metadata_changed")
-			self.bus.add_signal_receiver(self.stateChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="state_changed")
-		except:
-			self.signals.onMessage.emit("MAFW not responding", "The MeeGo multimedia framework is not responding, music updates and controls will be unavailable.")
+
+		# If MeeGo multimedia framework has already been started,
+		# we need to connect to it
+		self.mafwIfaceChanged()
+
+		self.bus.add_signal_receiver(self.nameOwnerChanged, dbus_interface="org.freedesktop.DBus", signal_name="NameOwnerChanged")
+		self.bus.add_signal_receiver(self.metadataChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="metadata_changed")
+		self.bus.add_signal_receiver(self.stateChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="state_changed")
+
 		self.firmwareUpdated = False
 		self.signals.onConnected.emit()
 
@@ -193,6 +184,37 @@ class Rockwatch(dbus.service.Object):
 		self.metadataChanged("album", [album])
 		self.metadataChanged("title", [title])
 
+	mafwIface = property(lambda self: getattr(self, '_mafwIface', None))
+	MAFW_GST_RENDERER = "com.nokia.mafw.renderer.MafwGstRendererPlugin.mafw_gst_renderer"
+
+	def nameOwnerChanged(self, name, *args):
+		''' We are processing any service startup or shutdown here '''
+		if name == self.MAFW_GST_RENDERER:
+			self.mafwIfaceChanged()
+
+	def mafwIfaceChanged(self):
+		''' Our previous mafwIface may be no longer valid '''
+		try:
+			mafwProxy = self.bus.get_object(
+				self.MAFW_GST_RENDERER,
+				"/com/nokia/mafw/renderer/mafw_gst_renderer"
+			)
+			self._mafwIface = dbus.Interface(
+				mafwProxy, dbus_interface="com.nokia.mafw.renderer"
+			)
+			status = self.mafwIface.get_status()
+		except Exception:
+			self._mafwIface = None
+		else:
+			if status[2] == 0:
+				self.stopped = True
+				self.paused = False
+			elif status[2] == 1:
+				self.paused = False
+				self.stopped = False
+			elif status[2] == 2:
+				self.paused = True
+				self.stopped = False
 
 	def metadataChanged(self, key, val, *args):
 		if key == "artist":
@@ -224,21 +246,25 @@ class Rockwatch(dbus.service.Object):
 
 
 	def musicControl(self, endpoint, data):
+		mafwIface = self.mafwIface
+		if not mafwIface:
+			return
+
 		if data == "NEXT":
-			self.mafwIface.next()
+			mafwIface.next()
 		elif data == "PREVIOUS":
-			self.mafwIface.previous()
+			mafwIface.previous()
 		elif data == "PLAYPAUSE":
 			if self.stopped:
-				self.mafwIface.play()
+				mafwIface.play()
 				self.stopped = False
 				self.paused = False
 			elif not self.paused:
-				self.mafwIface.pause()
+				mafwIface.pause()
 				self.paused = True
 				self.stopped = False
 			else:
-				self.mafwIface.resume()
+				mafwIface.resume()
 				self.paused = False
 				self.stopped = False
 
