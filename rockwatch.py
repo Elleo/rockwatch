@@ -160,7 +160,6 @@ class Rockwatch(dbus.service.Object):
 		try:
 			self.pebble = Pebble(self.pebbleId, True, False)
 			self.pebble.register_endpoint("MUSIC_CONTROL", self.musicControl)
-			self.pebble.register_endpoint("APPLICATION_MESSAGE", self.applicationMessage)
 		except LightBluePebbleError, e:
 			self.signals.onMessage.emit("Unable to connect to Pebble", str(e))
 			self.connecting = False
@@ -280,8 +279,7 @@ class Rockwatch(dbus.service.Object):
 			            message_id, message, sender)
 			self.showSMS(sender, message)
 
-	def applicationMessage(self, endpoint, data):
-		print 'applicationMessage', endpoint, data
+
 	def musicControl(self, endpoint, data):
 		mafwIface = self.mafwIface
 		if not mafwIface:
