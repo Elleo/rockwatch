@@ -16,6 +16,8 @@
 # You should have received a copy of the GNU General Public License 
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+import logging
+
 from PySide.QtCore import *
 from PySide.QtDeclarative import *
 from PySide.QtGui import *
@@ -28,7 +30,27 @@ from pebble.LightBluePebble import LightBluePebbleError
 from AppListModel import *
 
 
+logger = logging.getLogger('rockwatch')
+
+
 FIRMWARE_URL = "http://pebblefw.s3.amazonaws.com/pebble/ev2_4/release/latest.json"
+
+# Messaging constants, please see project
+# libcommhistory for details (eventmodel.h, event.h)
+DIRECTION_INBOUND = 1
+EVENT_TYPE_IM = 1
+EVENT_TYPE_SMS = 2
+MESSAGE_TYPES = (EVENT_TYPE_IM, EVENT_TYPE_SMS)
+
+
+def pebble_encode(message, encoding='utf-8', errors='ignore'):
+	''' Encodes message for sending to Pebble
+
+	Pebble supports UTF-8 strings, but its font contains ascii symbols only.
+	There are custom firmwares with custom fonts (e.g. cyrillic),
+	so we do not want to get rid of UTF-8 characters
+	'''
+	return unicode(message).encode(encoding, errors)
 
 
 class Signals(QObject):
@@ -138,6 +160,7 @@ class Rockwatch(dbus.service.Object):
 		try:
 			self.pebble = Pebble(self.pebbleId, True, False)
 			self.pebble.register_endpoint("MUSIC_CONTROL", self.musicControl)
+			self.pebble.register_endpoint("APPLICATION_MESSAGE", self.applicationMessage)
 		except LightBluePebbleError, e:
 			self.signals.onMessage.emit("Unable to connect to Pebble", str(e))
 			self.connecting = False
@@ -155,6 +178,8 @@ class Rockwatch(dbus.service.Object):
 		self.bus.add_signal_receiver(self.mafwIfaceChanged, dbus_interface="org.freedesktop.DBus", signal_name="NameOwnerChanged", arg0=self.MAFW_GST_RENDERER)
 		self.bus.add_signal_receiver(self.metadataChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="metadata_changed")
 		self.bus.add_signal_receiver(self.stateChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="state_changed")
+
+		self.bus.add_signal_receiver(self.messageReceived, dbus_interface="com.nokia.commhistory", signal_name="eventsAdded")
 
 		self.firmwareUpdated = False
 		self.signals.onConnected.emit()
@@ -213,11 +238,11 @@ class Rockwatch(dbus.service.Object):
 
 	def metadataChanged(self, key, val, *args):
 		if key == "artist":
-			self.artist = unicode(val[0]).encode('ascii', 'ignore')
+			self.artist = pebble_encode(val[0])
 		elif key == "album":
-			self.album = unicode(val[0]).encode('ascii', 'ignore')
+			self.album = pebble_encode(val[0])
 		elif key == "title":
-			self.track = unicode(val[0]).encode('ascii', 'ignore')
+			self.track = pebble_encode(val[0])
 		try:
 			self.mutex.acquire()
 			if not self.connecting:
@@ -240,6 +265,23 @@ class Rockwatch(dbus.service.Object):
 			self.paused = True
 
 
+	def messageReceived(self, event):
+		message_id = int(event[0][0])
+		event_type = int(event[0][1])
+		direction = int(event[0][4])
+
+		logger.debug('Received message %r event_type=%r direction=%r',
+                             message_id, event_type, direction)
+
+		if event_type in MESSAGE_TYPES and direction == DIRECTION_INBOUND:
+			sender = event[0][12]
+			message = event[0][15]
+			logger.info('Sending message %r (%r from %r) to Pebble)',
+			            message_id, message, sender)
+			self.showSMS(sender, message)
+
+	def applicationMessage(self, endpoint, data):
+		print 'applicationMessage', endpoint, data
 	def musicControl(self, endpoint, data):
 		mafwIface = self.mafwIface
 		if not mafwIface:
@@ -264,16 +306,10 @@ class Rockwatch(dbus.service.Object):
 				self.stopped = False
 
 
-	def messageReceived(self, data):
-		message = data[1]['content'].title()
-		sender = data[0]['sms-service-centre'].title()
-		self.showSMS(sender, message)
-
-
 	@dbus.service.method("com.mikeasoft.rockwatch")
 	def showSMS(self, sender, message):
-		sender = unicode(sender).encode('ascii', 'ignore')
-		message = unicode(message).encode('ascii', 'ignore')
+		sender = pebble_encode(sender)
+		message = pebble_encode(message)
 		try:
 			if not self.pebble.is_alive() and not self.connecting:
 				self.findPebble()
@@ -286,9 +322,9 @@ class Rockwatch(dbus.service.Object):
 
 	@dbus.service.method("com.mikeasoft.rockwatch")
 	def showEmail(self, sender, subject, body):
-		sender = unicode(sender).encode('ascii', 'ignore')
-		subject = unicode(subject).encode('ascii', 'ignore')
-		body = unicode(body).encode('ascii', 'ignore')
+		sender = pebble_encode(sender)
+		subject = pebble_encode(subject)
+		body = pebble_encode(body)
 		try:
 			if not self.pebble.is_alive() and not self.connecting:
 				self.findPebble()
