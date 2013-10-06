@@ -25,6 +25,7 @@ Page {
 
 		rootType: DocumentGallery.File;
 		properties: ["url", "fileName"];
+		autoUpdate: true;
 		filter: GalleryWildcardFilter {
 			property: "fileName";
 			value: "*.pbw";
@@ -35,6 +36,14 @@ Page {
 		anchors.fill: parent;
 		model: watchfaceFileModel;
 		delegate: watchfaceFileDelegate;
+		header: Button {
+			text: "Download more Pebble apps...";
+			width: parent.width;
+			height: 64;
+			onClicked: {
+				Qt.openUrlExternally("http://www.mypebblefaces.com");
+			}
+		}
 	}
 
 	Component {
