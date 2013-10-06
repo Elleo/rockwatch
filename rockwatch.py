@@ -148,6 +148,10 @@ class Rockwatch(dbus.service.Object):
 		bus_name = dbus.service.BusName("com.mikeasoft.rockwatch", bus=self.bus)
 		dbus.service.Object.__init__(self, object_path="/rockwatch", bus_name=bus_name)
 
+		# Register rockwatchnotification as a notificationsink
+		notificationmanager = dbus.Interface(self.bus.get_object('com.meego.core.MNotificationManager', '/notificationsinkmanager'), 'com.meego.core.MNotificationManager')
+		notificationmanager.registerSink("com.mikeasoft.notificationsink", "/notificationsink")
+
 		# If MeeGo multimedia framework has already been started,
 		# we need to connect to it
 		self.mafwIfaceChanged()
@@ -184,8 +188,10 @@ class Rockwatch(dbus.service.Object):
 		self.metadataChanged("album", [album])
 		self.metadataChanged("title", [title])
 
+
 	mafwIface = property(lambda self: getattr(self, '_mafwIface', None))
 	MAFW_GST_RENDERER = "com.nokia.mafw.renderer.MafwGstRendererPlugin.mafw_gst_renderer"
+
 
 	def mafwIfaceChanged(self, *args):
 		''' Our previous mafwIface may be no longer valid '''
@@ -210,6 +216,7 @@ class Rockwatch(dbus.service.Object):
 			elif status[2] == 2:
 				self.paused = True
 				self.stopped = False
+
 
 	def metadataChanged(self, key, val, *args):
 		if key == "artist":

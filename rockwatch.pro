@@ -1,5 +1,5 @@
-TEMPLATE = lib
-DEPENDPATH += . 
+TEMPLATE = subdirs
+SUBDIRS  = notification
 
 #install
 rockwatch.path = /opt/rockwatch/
@@ -20,4 +20,7 @@ desktop.files = rockwatch.desktop
 qml.path = /opt/rockwatch/qml/
 qml.files = qml/*
 
-INSTALLS += rockwatch pebble deps images desktop qml
+services.path = /usr/share/dbus-1/services
+services.files = *.service
+
+INSTALLS += rockwatch notificationsink pebble deps images desktop qml services

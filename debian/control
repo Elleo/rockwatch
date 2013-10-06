@@ -2,13 +2,13 @@ Source: rockwatch
 Section: user/internet
 Priority: extra
 Maintainer: Michael Sheldon <elleo@gnu.org>
-Build-Depends: debhelper (>= 7), dpatch
+Build-Depends: debhelper (>= 7), dpatch, libnotificationsystem-dev
 Standards-Version: 3.8.4
 Homepage: http://blog.mikeasoft.com/tag/rockwatch
 
 Package: rockwatch
 Architecture: any
-Depends: python-pyside.qtcore, python-pyside.qtgui, python-dbus, python-gconf, python-pyside.qtdeclarative, python-qtmobility.messaging, ${shlibs:Depends}, ${misc:Depends}
+Depends: python-pyside.qtcore, python-pyside.qtgui, python-dbus, python-gconf, python-pyside.qtdeclarative, python-qtmobility.messaging, libnotificationsystem0, ${misc:Depends}
 Description: Control a Pebble watch from your N9.
  Rockwatch makes it possible to install Pebble apps, upgrade your Pebble's
  firmware, receive notifications of e-mails and SMS messages and control your
