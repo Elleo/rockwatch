@@ -11,10 +11,21 @@ RockwatchNotificationSink::RockwatchNotificationSink(QObject *parent) : Notifica
 void RockwatchNotificationSink::addNotification(const Notification &notification) {
 	const NotificationParameters& parameters = notification.parameters();
 	QDBusInterface rockwatch("com.mikeasoft.rockwatch", "/rockwatch", "com.mikeasoft.rockwatch");
+	QString summary = parameters.value("summary").toString();
+	QString body = parameters.value("body").toString();
+	// Pebble won't display notifications containing empty strings in either
+	// component, so we replace them with a single space character.
+	// But only replace one or the other, since there's no point displaying
+	// completely empty notifications.
+	if(summary.length() == 0) {
+		summary = " ";
+	}else if(body.length() == 0) {
+		body = " ";
+	}
 	if(parameters.value("eventType").toString() == "email.arrived") {
-		rockwatch.call("showEmail", parameters.value("summary"), parameters.value("body"), " "); // Notification doesn't provide email message body, have to provide non-empty string for message to be displayed by Pebble
+		rockwatch.call("showEmail", summary, body, " "); // Notification doesn't provide email message body
 	} else {
-		rockwatch.call("showSMS", parameters.value("summary"), parameters.value("body"));
+		rockwatch.call("showSMS", summary, body);
 	}
 }
 
