@@ -35,13 +35,6 @@ logger = logging.getLogger('rockwatch')
 
 FIRMWARE_URL = "http://pebblefw.s3.amazonaws.com/pebble/ev2_4/release/latest.json"
 
-# Messaging constants, please see project
-# libcommhistory for details (eventmodel.h, event.h)
-DIRECTION_INBOUND = 1
-EVENT_TYPE_IM = 1
-EVENT_TYPE_SMS = 2
-MESSAGE_TYPES = (EVENT_TYPE_IM, EVENT_TYPE_SMS)
-
 
 def pebble_encode(message, encoding='utf-8', errors='ignore'):
 	''' Encodes message for sending to Pebble
@@ -182,8 +175,6 @@ class Rockwatch(dbus.service.Object):
 		self.bus.add_signal_receiver(self.metadataChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="metadata_changed")
 		self.bus.add_signal_receiver(self.stateChanged, dbus_interface="com.nokia.mafw.renderer", signal_name="state_changed")
 
-		self.bus.add_signal_receiver(self.messageReceived, dbus_interface="com.nokia.commhistory", signal_name="eventsAdded")
-
 		self.firmwareUpdated = False
 		self.signals.onConnected.emit()
 
@@ -269,22 +260,6 @@ class Rockwatch(dbus.service.Object):
 			self.stopped = False
 		elif state == 2:
 			self.paused = True
-
-
-	def messageReceived(self, event):
-		message_id = int(event[0][0])
-		event_type = int(event[0][1])
-		direction = int(event[0][4])
-
-		logger.debug('Received message %r event_type=%r direction=%r',
-                             message_id, event_type, direction)
-
-		if event_type in MESSAGE_TYPES and direction == DIRECTION_INBOUND:
-			sender = event[0][12]
-			message = event[0][15]
-			logger.info('Sending message %r (%r from %r) to Pebble)',
-			            message_id, message, sender)
-			self.showSMS(sender, message)
 
 
 	def musicControl(self, endpoint, data):
