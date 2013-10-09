@@ -304,6 +304,8 @@ class Rockwatch(dbus.service.Object):
 	def showEmail(self, sender, subject, body):
 		sender = pebble_encode(sender)
 		subject = pebble_encode(subject)
+		# libnotificationsystem uses \xc2\x9c as a delimiter when appending extra metadata (e.g. number of unread messages)
+		subject = subject.split('\xc2\x9c')[0]
 		body = pebble_encode(body)
 		try:
 			if not self.pebble.is_alive() and not self.connecting:
