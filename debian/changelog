@@ -1,3 +1,10 @@
+rockwatch (1.1-1) unstable; urgency=low
+
+  * Add support for HTTPebble
+  * Add option for setting the Pebble's time from the N9's clock
+
+ -- Michael Sheldon <elleo@gnu.org>  Sat, 12 Oct 2013 20:47:46 +0100
+
 rockwatch (1.0-1) unstable; urgency=low
 
   * First Ovi Store release
