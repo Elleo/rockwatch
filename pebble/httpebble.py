@@ -6,7 +6,7 @@ log = logging.getLogger()
 logging.basicConfig(format='[%(levelname)-8s] %(message)s')
 log.setLevel(logging.DEBUG)
 
-import bridge, uuid, json, urllib2, collections, time
+import bridge, uuid, json, urllib2, collections, time, math
 
 from struct import pack, unpack
 from base64 import b64decode
@@ -135,11 +135,26 @@ class HTTPebble(bridge.PebbleBridge):
 	def http_location_key(self, code, parameters):
 		assert code[0] == 1, "Expected 1, got %s" % repr(code)
 		assert len(parameters) == 0
+		try:
+			pos = self._locationProvider.lastKnownPosition()
+			lat = pos.coordinate().latitude()
+			lon = pos.coordinate().longitude()
+			alt = pos.coordinate().altitude()
+			if math.isnan(lat):
+				lat = 0
+			if math.isnan(lon):
+				lon = 0
+			if math.isnan(alt):
+				alt = 0
+		except:
+			lat = 0
+			lon = 0
+			alt = 0
 		vals = [
 			(HTTP_LOCATION_KEY, 5.0),
-			(HTTP_LATITUDE_KEY, 47.62052),
-			(HTTP_LONGITUDE_KEY, -122.32408),
-			(HTTP_ALTITUDE_KEY, 31.337),
+			(HTTP_LATITUDE_KEY, lat),
+			(HTTP_LONGITUDE_KEY, lon),
+			(HTTP_ALTITUDE_KEY, alt),
 		]
 		tuples = [AppMessage.construct_tuple(x[0], "UINT", pack("<f", x[1])) for x in vals]
 		return AppMessage.construct_dict(tuples)
@@ -257,10 +272,11 @@ class HTTPebble(bridge.PebbleBridge):
 		HTTP_COOKIE_DELETE_KEY: http_cookie_delete,
 	}
 
-	def __init__(self, pebble):
+	def __init__(self, pebble, locationProvider):
 		self._pebble = pebble
 		self._id = pebble.id
 		self._cookies = collections.defaultdict(dict) #TODO: Serialize/deserialize to disk
+		self._locationProvider = locationProvider
 		if len(self._id) > 4:
 			self._id = self._id[-5:-3] + self._id[-2:] #TODO: Verify this doesn't break non-lightblue folks.
 

@@ -21,6 +21,7 @@ import logging
 from PySide.QtCore import *
 from PySide.QtDeclarative import *
 from PySide.QtGui import *
+from QtMobility import Location
 import sys, signal, threading, urlparse, json, time
 import urllib2, tempfile, hashlib, StringIO, traceback
 import dbus, dbus.glib, dbus.service
@@ -69,6 +70,7 @@ class Rockwatch(dbus.service.Object):
 		self.app = QApplication(sys.argv)
 		self.app.setApplicationName("Rockwatch")
 		self.pebble = None
+		self.locationSource = Location.QGeoPositionInfoSource.createDefaultSource(self.app)
 		self.signals = Signals()
 		self.lastCheck = QDateTime()
 		self.stopped = True
@@ -153,7 +155,7 @@ class Rockwatch(dbus.service.Object):
 	def _connect(self):
 		self.connecting = True
 		try:
-			self.pebble = Pebble(self.pebbleId, True, False)
+			self.pebble = Pebble(self.pebbleId, True, False, self.locationSource)
 			self.pebble.register_endpoint("MUSIC_CONTROL", self.musicControl)
 		except LightBluePebbleError, e:
 			self.signals.onMessage.emit("Unable to connect to Pebble", str(e))

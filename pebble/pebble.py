@@ -223,11 +223,12 @@ class Pebble(object):
 		log.info("Autodetect found a Pebble with ID %s" % id)
 		return id
 
-	def __init__(self, id = None, using_lightblue = True, pair_first = False):
+	def __init__(self, id = None, using_lightblue = True, pair_first = False, locationSource = None):
 		if id is None and not using_lightblue:
 			id = Pebble.AutodetectDevice()
 		self.id = id
 		self.using_lightblue = using_lightblue
+		self._locationSource = locationSource
 		self._alive = True
 		self._endpoint_handlers = {}
 		self._internal_endpoint_handlers = {
@@ -821,7 +822,7 @@ class Pebble(object):
 
 	def install_bridge(self, bridge):
 		assert "process" in dir(bridge) #TODO: Proper parentage check
-		self.bridges[bridge.UUID] = bridge(self)
+		self.bridges[bridge.UUID] = bridge(self, self._locationSource)
 		log.info("Installed %s as a bridge on UUID %s" % (bridge, bridge.UUID))
 
 
