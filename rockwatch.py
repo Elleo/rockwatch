@@ -26,6 +26,7 @@ import urllib2, tempfile, hashlib, StringIO, traceback
 import dbus, dbus.glib, dbus.service
 from pebble import Pebble, PebbleError
 from pebble.pebble import PebbleBundle
+from pebble import httpebble
 from pebble.LightBluePebble import LightBluePebbleError
 from AppListModel import *
 
@@ -158,8 +159,13 @@ class Rockwatch(dbus.service.Object):
 			self.signals.onMessage.emit("Unable to connect to Pebble", str(e))
 			self.connecting = False
 			return
+
+		# Enable HTTPebble bridge
+		self.pebble.install_bridge(httpebble.HTTPebble)
+
 		dbus_main_loop = dbus.glib.DBusGMainLoop(set_as_default=True)
 		self.bus = dbus.SessionBus(dbus_main_loop)
+
 		# Setup our own DBUS service
 		bus_name = dbus.service.BusName("com.mikeasoft.rockwatch", bus=self.bus)
 		dbus.service.Object.__init__(self, object_path="/rockwatch", bus_name=bus_name)
