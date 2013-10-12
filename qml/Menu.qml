@@ -63,7 +63,7 @@ Page {
 
 			MenuItem {
 				text: "About";
-				onClicked: rootWin.showMessage("Rockwatch", "Version: 1.0\n\nAuthor: Mike Sheldon (elleo@gnu.org)\n\nLicense: GPL 3.0 or later\n");
+				onClicked: rootWin.showMessage("Rockwatch", "Version: 1.1\n\nAuthor: Mike Sheldon (elleo@gnu.org)\n\nLicense: GPL 3.0 or later\n");
 			}
 
 		}
