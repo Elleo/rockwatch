@@ -48,6 +48,13 @@ Page {
 			}
 
 			MenuItem {
+				text: "Set watch time from phone";
+				onClicked: {
+					rootWin.setTime();
+				}
+			}
+
+			MenuItem {
 				text: "Check for firmware update"
 				onClicked: {
 					rootWin.firmwareCheck();

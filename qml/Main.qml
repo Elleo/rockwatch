@@ -19,6 +19,7 @@ PageStackWindow {
 	signal upgradeFirmware();
 	signal getAppList();
 	signal deleteApp(int appId, int appIndex);
+	signal setTime();
 	signal ping();
 	signal quit();
 

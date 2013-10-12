@@ -21,7 +21,7 @@ import logging
 from PySide.QtCore import *
 from PySide.QtDeclarative import *
 from PySide.QtGui import *
-import sys, signal, threading, urlparse, json
+import sys, signal, threading, urlparse, json, time
 import urllib2, tempfile, hashlib, StringIO, traceback
 import dbus, dbus.glib, dbus.service
 from pebble import Pebble, PebbleError
@@ -87,6 +87,7 @@ class Rockwatch(dbus.service.Object):
 		self.rootObject.upgradeFirmware.connect(self.upgradeFirmware)
 		self.rootObject.watchfaceSelected.connect(self.installApp)
 		self.rootObject.getAppList.connect(self.getAppList)
+		self.rootObject.setTime.connect(self.setTime)
 		self.rootObject.deleteApp.connect(self.deleteApp)
 		self.appListModel = AppListModel()
 		self.context = self.view.rootContext()
@@ -396,6 +397,18 @@ class Rockwatch(dbus.service.Object):
 			self.signals.onMessage.emit("Unable to remove app", str(e))
 		self.signals.onDoneWorking.emit()
 		self.getAppList()
+
+
+	@dbus.service.method("com.mikeasoft.rockwatch")
+	def setTime(self):
+		self.rootObject.startWorking()
+		thread = threading.Thread(target=self._setTime)
+		thread.start()
+
+
+	def _setTime(self):
+		self.pebble.set_time(int(time.time() - time.timezone + time.daylight*3600))
+		self.signals.onDoneWorking.emit()
 
 
 	def firmwareCheck(self):
