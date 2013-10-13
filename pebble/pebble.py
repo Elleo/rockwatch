@@ -836,13 +836,22 @@ class Pebble(object):
 			log.debug("ACKing transaction %x" % ord(transaction))
 			self._send_message("APPLICATION_MESSAGE", "\xFF%s" % transaction)
 
+
 			if app_uuid in self.bridges:
 				reply = self.bridges[app_uuid].process(msg_dict)
 				if reply is not None:
 					msg = AppMessage.construct_message(reply, "PUSH", app_uuid.bytes, transaction)
 					self._send_message("APPLICATION_MESSAGE", msg)
 			else:
-				log.warn("Got app message for %s and no bridge was found" % app_uuid)
+				# No app is registered to handle this, let HTTPebble have a go 
+				# (some custom apps are really just HTTPebble implementations 
+				# with their own UUIDs)
+				log.warn("Got app message for %s and no bridge was found, attempt HTTPebble" % app_uuid)
+				http_uuid = uuid.UUID("9141b628-bc89-498e-b147-049f49c099ad")
+				reply = self.bridges[http_uuid].process(msg_dict)
+				if reply is not None:
+					msg = AppMessage.construct_message(reply, "PUSH", app_uuid.bytes, transaction)
+					self._send_message("APPLICATION_MESSAGE", msg)
 		elif command == b'\x02': #REQUEST:
 			log.warn("Got app request; not yet implemented; NACKing")
 			transaction = data[1]
